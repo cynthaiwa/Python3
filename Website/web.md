@@ -525,6 +525,94 @@ example：
 import matplotlib.pyplot as plt
 
 ```
+PNG => representated by pixel, each pixel => RGB value
+以bytes来储存，因此需要使用"wb"和"rb"
+rb: 代表 "read binary"（读取二进制）。这个模式用于读取二进制文件，如图片、视频、可执行文件等。在这个模式下，文件被视为二进制流，读取的数据不会以任何方式被自动转换或解码。
+
+wb: 代表 "write binary"（写入二进制）。当你需要将数据以二进制格式写入文件时，会使用这个模式。这同样意味着文件被视作二进制流，写入的数据不会进行任何自动的转换或编码。
+
+SVG => representated by test
+good for data analyse
+
+```python
+<img src = "example.png">
+<img src = "example.svg">   #=> html 中插入图片
+
+```
+```python
+import io # input output => StringIO(fake text file)
+# => BytesIO(fake bytes file)
+
+
+@app.route("/plot1.png")
+def plot1():
+    fig, ax = plt.subplots(figsize = (3,2)) # Figure对象，
+    pd.Series(temperature).plot.line(ax = ax)
+    ax.set_xlabel("T")
+    ax.set_ylabel("temperature")
+    plt.tight_layout()
+    # v1 
+    # with open("temp.png","wb")as f:   # too slow
+    #     fig.savefig(f)
+    # with open("temp.png","rb")as f:
+    #     return f.read()
+    # v2 - write and read on a fake bytes file
+    f = io.BytesIO() # create temprate fake bytes file   
+    fig.savefig(f) # don't need to create local file
+    plt.close()
+    return flask.Response(f.getvalue(), headers ={"Content-Type": "image/png"})
+    # Content-Type 是一个字段，它指示了主体内容（body）的媒体类型（MIME类型）。
+    # 如果没有这段命令，图片源码则会使乱码
+
+    # f.getvalue() 通常与字符串IO相关，特别是在使用 io.StringIO 或 io.BytesIO 类时。
+    # 这些类是内存中的文件对象，支持文件对象的大部分方法。StringIO 用于处理文本数据，
+    # 而 BytesIO 用于处理二进制数据。当你向这些对象写入内容后，可以使用 getvalue() 方法来获取写入的数据。
+```
+
+
+
+```python
+
+@app.route("/plot2.svg")
+def plot2():
+    fig, ax = plt.subplots(figsize = (3,2))
+    pd.Series(temperature).plot.line(ax = ax)
+    ax.set_xlabel("T")
+    ax.set_ylabel("temperature")
+    plt.tight_layout()
+    
+    f = io.StringIO() # create fake text file
+    fig.savefig(f, format="svg")  # default format is png
+    plt.close()
+    return flask.Response(f.getvalue(), headers ={"Content-Type": "image/svg+xml"})
+# TODO: add route for "/upload"
+
+```
+
+
+<h4>使用query string 来改变图片</h4>
+
+```python
+
+@app.route('/upload')
+def temp_upload():
+    temps = flask.request.args["temps"]
+    for t in temps.split(","):
+        temperature.append(float(t))
+    return f"You now have {len(temperature)} entries of temps."
+
+
+# post request
+@app.route('/postupload', methods=["POST"])
+def temp__post_upload():
+    temps = str(flask.request.get_data(),"utf-8") # get out data that was send through post request
+    for t in temps.split(","):
+        temperature.append(float(t))
+    return f"You now have {len(temperature)} entries of temps."
+
+```
+
+
 
 ## Regular Expression
 
@@ -553,3 +641,535 @@ A\tB
 ```
 "\\" and "r" cancel original mean of character of sign, "\t" mean tab, and those two sign cancel "\t" mean, hence, the code will print "\t".
 ![](2024-03-22-15-03-25.png)
+
+
+
+<h4>Character classes</h4>
+
+    Character classes can be mentioned within [...]
+    ^ means NOT of a character class
+    - enables us to mention range of characters, for example [A-Z]
+    | enables us to perform OR
+
+
+<h4>Metacharacters</h4>
+predefined character classes
+
+    \d => digits
+    \s => whitespace (space, tab, newline)
+    \w => "word" characters (digits, letters, underscores, etc) --- helpful for variable name matches and whole word matches (as it doesn't match whitespace --- \s)
+    . => wildcard: anything except newline
+    capitalized version of character classes mean NOT, for example \D => everything except digits
+
+
+<h4>REPETITION</h4>
+
+    <character>{<num matches>} - for example: w{3}
+    matches cannot overlap
+
+<h4>Variable length repitition operators</h4>
+
+    * => 0 or more (greedy: match as many characters as possible)
+    + => 1 or more (greedy: match as many characters as possible)
+    ? => 0 or 1
+    *? => 0 or more (non-greedy: match as few characters as possible)
+    +? => 1 or more (non-greedy: match as few characters as possible)
+
+<h4>Anchor characters</h4>
+
+    ^ => start of string
+    ^ is overloaded --- what was the other usage?
+    $ => end of string
+
+
+
+<h4>Re Module</h4>
+
+    re.findall(<PATTERN>, <SEARCH STRING>): regular expression matches
+    returns a list of strings
+    re.sub(<PATTERN>, <REPLACEMENT>, <SEARCH STRING>): regular expression match + substitution
+    returns a new string with the substitutions (remember strings are immutable)
+
+
+
+<h5>Group</h5>
+we can capture matches using () => this is the special meaning of ()
+returns a list of tuples, where length of the tuple will be number of groups
+
+email example
+
+```python
+s = """
+Yiyin [Instructor] - yshen82 (AT) wisc.edu
+Daisuke (TA): dyamada2@wisc.edu
+Garrison (Peer Mentor) - gwaugh [at]wisc.edu
+"""
+
+netid = r"\w+"
+at = r"@|[\(\[][aA][tT][\)\]]"
+domain = r"\w+\.(edu|com|org|net|io|gov)"
+
+full_regex = f"\s*({netid})\s*({at})\s*({domain})"
+
+re.findall(full_regex, s)
+
+
+output
+
+[('yshen82', '(AT)', 'wisc.edu', 'edu'),
+ ('dyamada2', '@', 'wisc.edu', 'edu'),
+ ('gwaugh', '[at]', 'wisc.edu', 'edu')]
+
+
+print("REGEX:", full_regex)
+for match in re.findall(full_regex, s):
+    print(f"{match[0]}@{match[3]}")
+
+output
+
+REGEX: \s*(\w+)\s*(@|[\(\[][aA][tT][\)\]])\s*(\w+\.(edu|com|org|net|io|gov))
+yshen82@edu
+dyamada2@edu
+gwaugh@edu
+```
+
+
+
+
+## Visualization
+
+像原形，三角形，这样的图片在matplot中被称为patches
+plt.Circle((<x>, <y>), <radius>)
+
+
+
+
+    Drawing a circle
+    Type plt. and then tab to see a list of patches.
+    plt.Circle((<x>, <y>), <radius>)
+    To see the cicle, we need to invoke either:
+    ax.add_patch(<circle object>)
+    ax.add_artist(<circle object>)
+    this invocation needs to be in the same cell as the one that draws the figure
+    Is there a difference between ax.add_patch and ax.add_artist?
+    ax.autoscale_view(): automatically chose limits for the axes; typically works better with ax.add_patch(...)
+
+
+
+
+
+ax.add_artist 和 ax.add_patch 是 Matplotlib 中用来向轴（Axes）对象添加绘图元素的两个方法，但它们在使用和适用范围上有所不同。
+
+ax.add_artist(artist):
+
+这个方法非常通用，允许你向轴（Axes）添加任何艺术家（Artist）对象。在 Matplotlib 中，艺术家（Artist）是所有绘图元素的基类，包括图形（如线条、文本、图像等）和容器（如轴、图形等）。因此，add_artist 方法可以用来添加各种类型的绘图元素，只要它们是 Artist 的子类。
+使用 add_artist 方法时，需要确保所添加的艺术家对象的坐标系统与轴对象匹配，或者已经适当设置了转换。
+ax.add_patch(patch):
+
+这个方法专门用于向轴添加“补丁”（Patch）对象。补丁是指那些有形状和颜色的图形元素，如圆形、矩形、多边形等。add_patch 方法是 add_artist 方法的一个特殊情形，专门针对补丁这一类的艺术家对象。
+使用 add_patch 方法添加补丁时，通常不需要担心坐标转换，因为补丁对象通常是以数据坐标来定义的，它们自动适应轴的坐标系统。
+
+
+
+
+
+
+
+
+
+```python
+fig, ax = plt.subplots(figsize=(6, 4))
+#Let's draw a circle at (0.5, 0.5) of radius 0.3
+c = plt.Circle((0.5, 0.5), 0.3)
+# Add the circle to the AxesSubplot
+ax.add_patch(c)
+
+```
+![](2024-04-02-15-58-38.png)
+
+```python
+type(c)
+
+output
+matplotlib.patches.Circle
+
+type(c).__mro__
+
+output:
+(matplotlib.patches.Circle,
+ matplotlib.patches.Ellipse,
+ matplotlib.patches.Patch,
+ matplotlib.artist.Artist,
+ object)
+
+# 是 Python 中的一个表达式，用于展示一个对象 c 的类型的方法解析顺序(Method Resolution Order,MRO)。
+#这个顺序是 Python 用于确定当你调用一个方法时，应该从哪个父类中寻找该方法的规则。
+#这个特性主要在面向对象编程中使用，尤其是在涉及到多继承的情况下
+```
+
+
+
+
+
+
+
+
+现在我们得到的图片看起来并不是一个圆，因此我们需要通过一些方法来将其变成一个圆
+一个最简单的方法就是修改图片尺寸
+
+```python
+fig, ax = plt.subplots(figsize = (4,4))
+c = plt.Circle((0.5, 0.5), 0.3)
+ax.add_artist(c)
+
+```
+![](2024-04-02-16-11-02.png)
+
+
+或者可以使用ax.set_aspect(<ratio>): how much space y axes takes with respect to x axes space(y轴相对于x轴占用了多少空间)
+
+
+```python
+fig, ax = plt.subplots(figsize=(6, 4))
+c = plt.Circle((0.5, 0.5), 0.3)
+ax.add_artist(c)
+# Set aspect for y-axis to 1
+ax.set_aspect(1)
+
+```
+![](2024-04-02-16-14-11.png)
+
+```python
+fig, ax = plt.subplots(figsize=(6,4))
+# Set x axis limit to (0, 3)
+ax.set_xlim(0, 3)
+c = plt.Circle((0.5, 0.5), 0.3)
+ax.add_artist(c)
+# Set aspect for y-axis to ???
+ax.set_aspect(3)
+
+```
+![](image.png.png)
+
+
+<h4>Transformers</h4>
+<b>ax.transData: default</b>
+
+Axes 对象（通常用 ax 表示）的属性，它表示使用数据的原始坐标系统。这是默认的变换器，用于绘制大多数图形元素，如点、线等，这些元素的位置是基于数据坐标的。
+使用此变换，坐标被解释为图表数据空间中的点，使得 (x, y) 坐标直接对应于数据点的位置。
+
+    plt.Circle((<x>, <y>), <radius>) 
+
+```python
+
+fig, (ax1, ax2) = plt.subplots(figsize=(6, 4), ncols=2)
+# Set right subplot x-axis limit from 0 to 3
+ax2.set_xlim(0, 3)
+
+# Left subplot: plot Circle at (0.5, 0.5) with radius 0.2
+# Specify CRS as ax1.transData (tranform parameter)
+c = plt.Circle((0.5, 0.5), 0.2, transform=ax1.transData) # 就 ax1 而言在坐标轴的0.5 0.5 的位置
+#画一个半径为0.2的圆，基于ax1坐标轴范围的基础上
+ax1.add_artist(c)
+
+# Right subplot: plot Circle at (0.5, 0.5) with radius 0.2
+# default: transform=ax2.transData
+c = plt.Circle((0.5, 0.5), 0.2, transform = ax2.transData) 
+ax2.add_artist(c)
+# Observe that we get a different circle
+
+# Transform based on ax1, but crop based on ax2
+# Left subplot: plot Circle at (1, 1) with radius 0.3 and crop using ax2
+c = plt.Circle((1, 1), 0.3, transform=ax1.transData) # where to position the shape 
+ax1.add_artist(c)  # how to crop the shape
+
+# 同理，这是在ax1坐标轴基础上画一个中心点在1，1， 半径为0.3的圆
+
+# Right subplot: plot Circle at (1, 1) with radius 0.3 and crop using ax1
+c = plt.Circle((1, 1), 0.3, transform=ax1.transData) # where to position the shape
+ax2.add_artist(c)  # how to crop the shape
+# 这是同理，只不过这一部分展示的是ax2部分所绘制出来的圆。
+
+
+
+
+```
+![](2024-04-02-16-40-08.png)
+
+
+<h4>ax.transAxes and fig.transFigure</h4>
+(0, 0) is bottom left
+(1, 1) is top right
+these are true immaterial of the axes limits
+Think of the positions as percentage of the entire plot
+
+ax.transAxes
+根据坐标轴来定，例如x轴是3， 但是Circle中的x是0.2， 那么中心点会在0.6的位置。
+
+
+而 fig.transFigure 是正对整个图形来确定的，具体参考红色的圈
+
+```python
+fig, (ax1, ax2) = plt.subplots(figsize=(6, 4), ncols=2)
+ax2.set_xlim(0, 3)
+
+# Left subplot
+c = plt.Circle((0.5, 0.5), 0.2, transform = ax1.transAxes)
+ax1.add_artist(c)
+
+#Right subplot
+c = plt.Circle((0.2, 0.8), 0.2 , transform = ax2.transAxes)
+ax2.add_artist(c)
+
+# whole figure
+#edgecolor="red", facecolor="none", linewidth=3
+c = plt.Circle((0.5, 0.5), 0.2, transform = fig.transFigure,edgecolor="red", facecolor="none", linewidth=3)
+fig.add_artist(c)
+
+```
+![](2024-04-02-16-49-55.png)
+
+
+    数据坐标（default）：形状的位置和大小以与坐标轴上绘制的数据相同的坐标给出。
+    例如，如果您在图表上绘制一个圆，数据集的范围在两个轴上都是从 0 到 100，
+    用数据坐标指定半径会根据轴的数据限制来缩放圆。
+
+    轴坐标 (transform=ax.transAxes)：形状的位置和大小以轴坐标给出，其中 (0, 0) 是轴
+    的左下角，(1, 1) 是右上角。当您想根据轴的大小定位形状，而不考虑数据的比例时，这很有用。
+
+    图形坐标 (transform=fig.transFigure)：类似于轴坐标，但相对于整个图形。
+    这里，(0, 0) 是图形的左下角，(1, 1) 是右上角。这适用于在图形中的特定位置定位某物，而不考虑任何单个轴。
+
+    显示坐标 (transform=None 与在图形或画布上直接放置对象的上下文中使用)：
+    这里，位置和大小以相对于显示器或图形画布的像素给出。这种用法很少用于绘制数据，
+    但对于需要固定位置的 GUI 元素或注释很有用，无论放大或调整大小。
+
+
+
+plt.tight_layout()：可以自动调整子图参数，以便子图之间以及子图与图形边缘之间填充适当的空间
+
+```python
+
+fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(6, 4))
+ax2.set_xlim(0, 3)
+
+# What is the dpi?
+print(fig.dpi)   # dots (aka pixel) per inch
+
+# Calculate total width and height of the figure using dpi and dimensions
+width = 6 * fig.dpi
+height = 4 * fig.dpi
+
+# # Calculate (x, y) in the middle of the plot
+x = width / 2
+y = height / 2
+print(x, y)
+
+# # Make sure to invoke plt.tight_layout()
+# # matplotlib does the cropping better than Jupyter
+plt.tight_layout() # author adjust withe sapce
+
+# Draw a circle at (x, y) with radius 30
+# Make sure to set transform=None
+c = plt.Circle((x, y), 30, transform = None) # 如果说plt.tight_layout()在这个命令之后
+# 那么我们的图片则会根据还没有自动填充适当空间之前有很多white space的空间来进行绘制。
+fig.add_artist(c)
+# Save the figure to temp.png
+fig.savefig("temp.png")
+
+
+```
+![](2024-04-04-09-46-38.png)
+
+
+
+None or IdentityTransform(): disabling CRS（坐标轴系统 Geographic Coordinate System）
+
+
+fig.dpi
+
+fig.dpi 是指图形的分辨率，以每英寸点数（dots per inch, DPI）来度量。这个属性影响了图形的大小和质量，特别是当你将图形保存到文件时。
+较高的 DPI 值意味着更高的图形质量和更清晰的图像，但同时也意味着生成的文件可能会更大
+
+eg. 我的width是6，那么我就会有600 dpi。
+
+
+
+ax.transData.transform((x, y)) 在 Matplotlib 中用于将坐标从数据坐标系（或称为轴坐标系）转换为原始像素坐标。这个过程对于进行精确的图形布局或当你需要将图形元素与特定的像素位置对齐时非常有用。
+
+
+
+```python
+
+fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(6, 4))
+#使用 plt.subplots(ncols=2, figsize=(6, 4)) 创建一个图形对象 (fig) 
+#和两个子图轴对象 (ax1 和 ax2)。这意味着整个图形被分为两个并排的子图，
+#图形大小为宽6英寸，高4英寸。
+ax2.set_xlim(0, 3)
+#通过 ax2.set_xlim(0, 3) 设置 ax2 的 x 轴显示范围为0到3
+# crop now (after .transform, we don't want to move anything!)
+plt.tight_layout() 
+#调整子图的布局，使得图形中的各个元素不会重叠，看起来更加整洁。
+x, y = ax2.transData.transform((0.5, 0.5)) # 转换成像素坐标
+# 将数据点 (0.5, 0.5) 转换为 ax2 子图的像素坐标 (x, y)。
+print(x, y)
+# Draw a circle at (x, y) with radius 30 and set transform to None
+c = plt.Circle((x, y), 30, transform=None)
+#创建一个半径为30像素的圆形 plt.Circle((x, y), 30, transform=None)，并将其添加到 ax2。
+#这里的 transform=None 表示使用原始的显示坐标系（像素坐标），这个圆形的中心位于由
+#数据点 (0.5, 0.5) 转换而来的像素位置。
+ax2.add_artist(c)
+
+# # GOAL: arrow from 0.2, 0.2 (left) to 2, 0.5 (right)
+# # Use axes / data coords from one subplot to another subplot
+x1, y1 = ax1.transData.transform((0.2, 0.2))  # transform is a good way draw out thing in two subplot at same time
+x2, y2 = ax1.transData.transform((2, 0.5)) # 转换像素坐标
+arrow = matplotlib.patches.FancyArrowPatch((x1,y1),(x2,y2),transform=None,arrowstyle="simple,head_width=10,head_length=10" )
+# 这个箭头图像是基于整个图形而言的，看图。
+fig.add_artist(arrow)
+
+```
+
+
+
+
+```python
+
+df = pd.DataFrame([
+    {"x":2, "y":5, "a": 90},
+    {"x":3, "y":1, "a": 0},
+    {"x":6, "y":6, "a": 45},
+    {"x":8, "y":1, "a": 180}
+])
+df
+
+
+fig, ax = plt.subplots(figsize=(3,2))
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 10)
+
+for row in df.itertuples():
+    print(row.x, row.y, row.a)
+    # v1: draw a circle for each scatter point
+    
+    x, y = ax.transData.transform((row.x,row.y))   # 因为在这里已经用transdata去得到了我的pixel因此在下面就不需要再重新获得， 可以直接使用transform = None
+    c = plt.Circle((x,y), radius=10, transform = None)
+    # ax.add_artist(c)
+    
+    # v2: draw an arrow for each scatter point (correct angle)
+    # x, y = ???
+    # # Calculate angle: math.radians(row.a)
+    a = math.radians(row.a)
+    # # Calculate end axes / data coords using 
+    x_diff = math.cos(a) * 25
+    y_diff = math.sin(a) * 25
+    c = matplotlib.patches.FancyArrowPatch((x,y), (x+x_diff,y+y_diff), color="k", transform = None, arrowstyle = "simple,head_width=10,head_length=10")
+    ax.add_artist(c)
+```
+
+![](2024-04-04-10-30-22.png)
+
+
+
+![](2024-04-04-10-41-09.png)
+
+
+
+    ax.text
+    ax.text 用于在图表的指定位置添加文本。通过调整文本的对齐方式，可以精确地控制文本在图中的位置。这在添加注释或解释图表的特定部分时非常有用。
+
+    <x>, <y>: 这是文本在图表中的位置。坐标是基于当前轴（Axes）的数据坐标系统。
+    <text>: 你想要显示的文本字符串。
+    ha=<someval>: 水平对齐方式。<someval> 可以是 'center', 'right', 或 'left'。这决定了文本相对于其 x 坐标的对齐方式。
+    va=<someval>: 垂直对齐方式。<someval> 可以是 'center', 'top', 'bottom', 'baseline', 或 'center_baseline'。这决定了文本相对于其 y 坐标的对齐方式。
+    通过调整 ha 和 va 参数，你可以控制文本的“锚点”，即文本相对于其指定位置的确切对齐方式。
+
+    plt.Line2D
+    plt.Line2D 用于创建线条对象，这在需要绘制自定义线条或强调图表中的特定部分时特别有用。
+
+    (<x1>, <x2>): 线条的起点和终点的 x 坐标。
+    (<y1>, <y2>): 线条的起点和终点的 y 坐标。
+    这些坐标确定了线条在图表中的位置和方向。
+
+    plt.Rectangle
+    plt.Rectangle 用于在图表中添加矩形。这可以用来高亮图表中的特定区域，或者绘制柱状图、条形图等。
+
+    (<x>, <y>): 矩形左下角的坐标。
+    <width>, <height>: 矩形的宽度和高度。
+    通过调整这些参数，你可以控制矩形的大小和位置。
+
+
+
+```python
+plt.rcParams["font.size"] = 16
+df = pd.DataFrame({"A": [1,2,8,9], "B": [5,7,12,15]}, index=[10,20,30,40])
+ax = df.plot.line(figsize=(4,3), legend=False)
+ax.set_xlabel("Day")
+ax.set_ylabel("Amount")
+plt.tight_layout()
+# Enables us to control borders (aka spines)
+ax.spines['top'].set_visible(False)  # 取消图片中的右边和上面的边框
+ax.spines['right'].set_visible(False)
+# 1. Replace legened with line labels
+for col in df.columns:
+    ax.text(df.index[-1],df[col].iat[-1],col, ha = "left", va = "center")# 修改AB的具体位置。
+
+# 2. Draw a vertical line at x=20
+p = plt.Line2D((20,20),ax.get_ylim(),color = "r", linestyle="--")
+ax.add_artist(p)
+# 3. Highlight a region from x=25 to x=35
+p = plt.Rectangle((25,0), 10, ax.get_ylim()[1], color = 'k', zorder = -50, alpha = 0.2, linewidth = 0) # 控制图层哪个在上面哪个在下面，目前这个是黑色长方形在两个线条下面
+# alpha 控制 transparent 透明度， alpha = 1 就是完全黑，alpha = 0 就是白色，alpha = 0.2 如图所示。
+# linewidth = 0 控制方块没有边框
+ax.add_artist(p)
+df
+# ax.get_ylim()# 这个方法返回一个元组，包含两个元素：y 轴的最小值和最大值。
+
+```
+
+![](2024-04-04-11-00-19.png)
+
+
+
+## Geopandas
+
+geopandas 是 pandas datafram 的子类
+
+
+    Polygon([(<x1>, <y1>), (<x2>, <y2>), (<x3>, <y3>), ...])
+    Polygon 对象用于表示一个封闭的多边形区域。这个区域由一系列顶点（或称为点、坐标）定义，
+    这些顶点按顺序连接形成多边形的边界，最后一个顶点会与第一个顶点连接，形成一个封闭的环。
+
+
+    box(<minx>, <miny>, <maxx>, <maxy>)
+    函数用于快速创建一个矩形多边形（Polygon 对象）。这个矩形是由左下角的坐标 (minx, miny) 
+    和右上角的坐标 (maxx, maxy) 定义的。
+
+
+    Point(<x>, <y>) 特定位置有一个点。
+
+
+    <shapely object>.buffer(<size>)
+    example: Point(5, 5).buffer(3) creates a circle
+    .buffer(size) 方法用于为几何对象创建一个缓冲区，这个缓冲区是围绕原始对象的一定距离的区域。
+    size 参数指定了缓冲区的宽度，即原始对象到缓冲区边界的距离。
+
+
+    Shapely methods:
+    union: any point that is in either shape (OR)
+    并集操作创建一个新的几何对象，它包含在两个输入几何对象中的任意点。
+    如果你把这两个对象想象成集合，union 方法返回的结果就是这两个集合所有元素的组合，没有重复。
+
+    intersection: any point that is in both shapes (AND)
+    交集操作生成一个包含两个输入几何对象共有部分的新几何对象。只有同时在两个对象中的点才会出现在结果中。
+
+    difference: subtraction 差集操作从第一个几何对象中减去与第二个对象重叠的部分，
+    生成一个包含所有只在第一个对象中的点的新几何对象。
+
+    intersects: do they overlap? return T/F
+
+![](2024-04-04-13-30-26.png)
+
+![](2024-04-04-13-32-00.png)
+
+![](2024-04-04-13-32-16.png)
