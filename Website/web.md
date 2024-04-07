@@ -43,6 +43,7 @@ Status:
 429 : To Many Request
 500 : There has some BUG
 200 : OK
+405 ：Method not allow
 
 ![](2024-03-24-13-31-51.png)
 
@@ -502,6 +503,10 @@ A/A testing: 验证测试系统有效性
 
 当在A/B testing 结束后，发现 B version更好，但是担心是novelty原因，因此 可以switch to B and do B/A testing。
 
+
+
+担心 Version B 可能 terrible 但是你依然想要计算它。因此你需要starting with 0% of B, then slowly increase.
+
 **simple size 也会影响A/B testing的结果**
 example：
 
@@ -656,7 +661,7 @@ A\tB
 predefined character classes
 
     \d => digits
-    \s => whitespace (space, tab, newline)
+    \s => whitespace (space, tab(\t), newline)
     \w => "word" characters (digits, letters, underscores, etc) --- helpful for variable name matches and whole word matches (as it doesn't match whitespace --- \s)
     . => wildcard: anything except newline
     capitalized version of character classes mean NOT, for example \D => everything except digits
@@ -1030,7 +1035,7 @@ fig.add_artist(arrow)
 
 ```
 
-
+![](2024-04-05-01-27-31.png)
 
 
 ```python
@@ -1173,3 +1178,75 @@ geopandas 是 pandas datafram 的子类
 ![](2024-04-04-13-32-00.png)
 
 ![](2024-04-04-13-32-16.png)
+
+![](2024-04-06-22-28-00.png)
+```python
+eur.plot(facecolor="lightgray", edgecolor="k")
+eur.centroid
+# centroid 获取图像的质心
+eur.centroid.plot()
+```
+
+
+![](2024-04-06-22-28-13.png)
+![](2024-04-06-22-29-05.png)
+
+
+```python
+eur.plot(facecolor="lightgray", edgecolor="k")
+
+eur.centroid.plot(ax = ax)
+```
+![](2024-04-06-22-31-12.png)
+
+这些plot都是使用lat和long进行绘制的
+
+```python
+eur.crs
+eur.to_crs["EPSG:335"]
+```
+
+![](2024-04-06-22-33-21.png)
+![](2024-04-06-22-38-28.png)
+
+.crs属性代表坐标参考系统（Coordinate Reference System，CRS）。坐标参考系统是用于确保地理数据在地球表面的正确表示的系统。它可以是基于地理坐标的系统（使用经纬度度量），也可以是基于投影的系统（将地球表面映射到一个平面上）。
+
+
+to_crs方法在geopandas中的作用是将地理空间数据（存储在GeoDataFrame或GeoSeries中）从一个坐标参考系统（CRS）转换到另一个。 
+
+Web地图通常使用Web Mercator投影（EPSG:3857），而科学研究或全球视图可能更倾向于使用WGS 84（EPSG:4326）   
+
+这些api可以图片和数据更加准确
+
+
+```python
+eur_m.area # area in sq meters
+```
+
+在geopandas中，.area属性用于计算GeoDataFrame或GeoSeries中每个几何对象的面积。这个属性返回一个pandas系列（Series），其中包含了每个几何形状的面积计算结果，单位通常依赖于几何对象当前的坐标参考系统（CRS）。
+
+获取面积的单位是米
+
+```python
+eur_m.area / 1000 / 1000 / 2.59  #单位转换 meter to miles
+
+
+# 没有使用eur.to_crs["EPSG:335"] 然后使用area获取到的面积是基于图片的，而不是实际的，
+# 而使用了的则就是实际面积，非常大， 通常需要单位换算
+```
+
+
+```python
+city = gpd.read_file("City_Limit.zip").to_crs("EPSG:32616")
+# 3rd digit (6 stands for north hemisphere, 7 stands for south)
+# last two digits stand for the vertical mercator coordinate 
+city.crs
+
+water = gpd.read_file("Lakes_and_Rivers.zip").to_crs(city.crs)
+fire = gpd.read_file("Fire_Stations.zip").to_crs(city.crs)
+police = gpd.read_file("Police_Stations.zip").to_crs(city.crs)
+
+url = "https://maps.cityofmadison.com/arcgis/rest/services/Public/OPEN_DATA/MapServer/2/query?outFields=*&where=1%3D1&f=geojson"
+police2 = gpd.read_file(url).to_crs(city.crs)
+```
+![](2024-04-06-22-57-12.png)
