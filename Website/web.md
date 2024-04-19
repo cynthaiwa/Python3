@@ -1247,6 +1247,15 @@ fire = gpd.read_file("Fire_Stations.zip").to_crs(city.crs)
 police = gpd.read_file("Police_Stations.zip").to_crs(city.crs)
 
 url = "https://maps.cityofmadison.com/arcgis/rest/services/Public/OPEN_DATA/MapServer/2/query?outFields=*&where=1%3D1&f=geojson"
+
+# use goem_jaso 可以动态的更新图，例如，可能某处修建了新的police，在我们这边也会随之更新。
 police2 = gpd.read_file(url).to_crs(city.crs)
 ```
 ![](2024-04-06-22-57-12.png)
+
+
+
+```python
+gpd.tools.geocode("4200 block West Beltline Highway; Madison, WI")
+# geocode: take particular address convert in to CRS we using
+```
